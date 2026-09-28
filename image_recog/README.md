@@ -1,27 +1,25 @@
-# SHViT: Single-Head Vision Transformer with Memory Efficient Macro Design
+# CoDAT: Collaborative Dual-Attention Transformer with Low-Cost Temporal Modeling for Efficient Edge Action Recognition
 
 This is the official repository of 
 
-[**SHViT: Single-Head Vision Transformer with Memory Efficient Macro Design**](https://arxiv.org/abs/2401.16456)
-*Seokju Yun, Youngmin Ro.* CVPR 2024
-
-![SHViT Performance](acc_vs_thro.png)
+[**CoDAT: Collaborative Dual-Attention Transformer with Low-Cost Temporal Modeling for Efficient Edge Action Recognition**](https://arxiv.org/abs/2608.06691)
+*Novendra Setyawan, Chi-Chia Sun, Mao-Hsiu Hsu, Wen-Kai Kuo, Jing-Ming Guo, Jun-Wei Hsieh.* IEEE IoT Journal 2026
 
 <details>
   <summary>
   <font size="+1">Abstract</font>
   </summary>
-Recently, efficient Vision Transformers have shown great performance with low latency on resource-constrained devices. Conventionally, they use 4x4 patch embeddings and a 4-stage structure at the macro level, while utilizing sophisticated attention with multi-head configuration at the micro level. This paper aims to address computational redundancy at all design levels in a memory-efficient manner. We discover that using larger-stride patchify stem not only reduces memory access costs but also achieves competitive performance by leveraging token representations with reduced spatial redundancy from the early stages. Furthermore, our preliminary analyses suggest that attention layers in the early stages can be substituted with convolutions, and several attention heads in the latter stages are computationally redundant. To handle this, we introduce a single-head attention module that inherently prevents head redundancy and simultaneously boosts accuracy by parallelly combining global and local information. Building upon our solutions, we introduce SHViT, a Single-Head Vision Transformer that obtains the state-of-the-art speed-accuracy tradeoff. For example, on ImageNet-1k, our SHViT-S4 is 3.3x, 8.1x, and 2.4x faster than MobileViTv2 x1.0 on GPU, CPU, and iPhone12 mobile device, respectively, while being 1.3% more accurate. For object detection and instance segmentation on MS COCO using Mask-RCNN head, our model achieves performance comparable to FastViT-SA12 while exhibiting 3.8x and 2.0x lower backbone latency on GPU and mobile device, respectively.
+Real-time human action recognition on Internet-of-Things (IoT) edge devices requires models that capture rich spatio-temporal cues within strict latency, memory, and power envelopes. Current 3D CNNs, video transformers, and shift-based ViT deliver high accuracy but come at computational costs that preclude edge IoT deployment. This paper proposes CoDAT, a Collaborative Dual-Attention Transformer that replaces conventional multi-head attention with a lightweight dual-branch module: Spatial Convolutional Attention (SCA) for local aggregation and Strided Single-Head Attention (SSHA) for global context. SSHA jointly compresses the spatial resolution and channel dimensions of the query, key, and value tensors via stride-based sparse projection, then fuses the resulting global and local features at a markedly reduced cost. To enable temporal communication across frames, a parameter-free TShift module is embedded in each block. Extensive experiments on Jetson AGX Orin and Raspberry Pi 5 demonstrate that CoDAT achieves an energy-accuracy balance in both image and action recognition. On ImageNet-1K, CoDAT-M runs 2x faster than EfficientViT384 and FastViT-S12 at comparable accuracy, and CoDAT-L matches ViT-S with 3x fewer parameters at 2x higher throughput. On Kinetics-400 and MA-52, CoDAT achieves competitive Top-1 accuracy against state-of-the-art CNN, transformer, and hybrid baselines while running up to 2.9x faster than VSwin-T, 2x faster than ViT-Temporal-Shift variants, and 5x faster than UniFormer-B. On UCF-101, CoDAT-S384 matches TokShift and LAPS while being 6x faster and requiring up to 13x fewer FLOPs, establishing an efficiency-accuracy balance for real-time action recognition in edge IoT perception systems..
 </details>
 
 
 ## Pre-trained Models
 | name | resolution | acc | #params | FLOPs | Throughput | model |
 |:---:|:---:|:---:|:---:| :---:|:---:|:---:|
-| SHViT-S1 | 224x224 | 72.8 | 6.3M | 241M | 33489 |[model](https://github.com/ysj9909/SHViT/releases/download/v1.0/shvit_s1.pth) |
-| SHViT-S2 | 224x224 | 75.2 | 11.4M | 366M | 26878 | [model](https://github.com/ysj9909/SHViT/releases/download/v1.0/shvit_s2.pth) |
-| SHViT-S3 | 224x224 | 77.4 | 14.2M | 601M | 20522 | [model](https://github.com/ysj9909/SHViT/releases/download/v1.0/shvit_s3.pth) |
-| SHViT-S4 | 256x256 | 79.4 | 16.5M | 986M | 14283 | [model](https://github.com/ysj9909/SHViT/releases/download/v1.0/shvit_s4.pth) |
+| CoDAT-S | 256x256 | 77.6 | 9.9M | 580M | 1439.6 | [model](https://huggingface.co/novendrastywn/CoDAT/resolve/main/codat_s1_inet_1k.pth) |
+| CoDAT-M | 256x256 | 79.7 | 17.1M | 940M | 1021.9 | [model](https://huggingface.co/novendrastywn/CoDAT/resolve/main/codat_s2_inet_1k.pth) |
+| CoDAT-L | 256x256 | 81.4 | 27.8M | 2.19G | 517.9 | [model](https://huggingface.co/novendrastywn/CoDAT/resolve/main/codat_s3_inet_1k.pth) |
+
 
 
 ## Training
@@ -29,9 +27,9 @@ Recently, efficient Vision Transformers have shown great performance with low la
 
 #### Setup
 ```bash
-conda create -n shvit python=3.9
+conda create -n codat python=3.11
 conda activate shvit
-conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
+conda install pytorch==2.8.0 torchvision==0.23.0 cudatoolkit=12.9 -c pytorch
 pip install -r requirements.txt
 ```
 
@@ -52,52 +50,43 @@ Download the [ImageNet-1K](http://image-net.org/) dataset and structure the data
       img4.jpeg
 ```
 
-To train SHViT models, follow the respective command below:
+To train CoDAT models, follow the respective command below:
 <details>
 <summary>
-SHViT-S1
+CoDAT-S
 </summary>
 
 ```
-python -m torch.distributed.launch --nproc_per_node=8 --master_port 12345 --use_env main.py --model shvit_s1 --data-path $PATH_TO_IMAGENET --dist-eval --weight-decay 0.025
+python -m torch.distributed.launch --nproc_per_node=8 --master_port 12345 --use_env main.py --model codat_s --data-path $PATH_TO_IMAGENET --dist-eval --weight-decay 0.025
 ```
 </details>
 
 <details>
 <summary>
-SHViT-S2
+CoDAT-M
 </summary>
 
 ```
-python -m torch.distributed.launch --nproc_per_node=8 --master_port 12345 --use_env main.py --model shvit_s2 --data-path $PATH_TO_IMAGENET --dist-eval --weight-decay 0.032
+python -m torch.distributed.launch --nproc_per_node=8 --master_port 12345 --use_env main.py --model codat_m --data-path $PATH_TO_IMAGENET --dist-eval --weight-decay 0.032
 ```
 </details>
 
 <details>
 <summary>
-SHViT-S3
+CoDAT-L
 </summary>
 
 ```
-python -m torch.distributed.launch --nproc_per_node=8 --master_port 12345 --use_env main.py --model shvit_s3 --data-path $PATH_TO_IMAGENET --dist-eval --weight-decay 0.035
+python -m torch.distributed.launch --nproc_per_node=8 --master_port 12345 --use_env main.py --model codat_l --data-path $PATH_TO_IMAGENET --dist-eval --weight-decay 0.035
 ```
 </details>
 
-<details>
-<summary>
-SHViT-S4
-</summary>
-
-```
-python -m torch.distributed.launch --nproc_per_node=8 --master_port 12345 --use_env main.py --model shvit_s4 --data-path $PATH_TO_IMAGENET --dist-eval --weight-decay 0.03 --input-size 256
-```
-</details>
 
 
 ## Evaluation
-Run the following command to evaluate a pre-trained SHViT-S4 on ImageNet-1K validation set with a single GPU:
+Run the following command to evaluate a pre-trained CoDAT-S on ImageNet-1K validation set with a single GPU:
 ```bash
-python main.py --eval --model shvit_s4 --resume ./shvit_s4.pth --data-path $PATH_TO_IMAGENET --input-size 256
+python main.py --eval --model codat_s --resume ./codat_s1.pth --data-path $PATH_TO_IMAGENET --input-size 256
 ```
 
 
@@ -108,26 +97,21 @@ Run the following command to compare the throughputs on GPU/CPU:
 python speed_test.py
 ```
 
-The mobile latency reported in SHViT for iPhone 12 uses the deployment tool from [XCode 14](https://developer.apple.com/videos/play/wwdc2022/10027/).
-
-export the model to Core ML model
-
-```
-python export_model.py --variant shvit_s4 --output-dir /path/to/save/exported_model \
---checkpoint /path/to/pretrained_checkpoints/shvit_s4.pth
-```
 
 ## Citation
 If our work or code help your work, please cite our paper:
 ```
-@inproceedings{yun2024shvit,
-  author={Yun, Seokju and Ro, Youngmin},
-  title={SHViT: Single-Head Vision Transformer with Memory Efficient Macro Design},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-  pages={5756--5767},
-  year={2024}
-}
+@ARTICLE{11640850,
+  author={Setyawan, Novendra and Sun, Chi-Chia and Hsu, Mao-Hsiu and Kuo, Wen-Kai and Guo, Jing-Ming and Hsieh, Jun-Wei},
+  journal={IEEE Internet of Things Journal}, 
+  title={CoDAT: Collaborative Dual-Attention Transformer with Low-Cost Temporal Modeling for Efficient Edge Action Recognition}, 
+  year={2026},
+  volume={},
+  number={},
+  pages={1-1},
+  keywords={Modeling;Accuracy;Videos;Internet of Things;Energy;Transformers;Design methodology;Head;Costing;Costs;Vision transformer;dual attention;strided single-head attention;temporal shift;edge action recognition},
+  doi={10.1109/JIOT.2026.3719793}}
 ```
 
 ## Acknowledgements
-We sincerely appreciate [Swin Transformer](https://github.com/microsoft/swin-transformer), [LeViT](https://github.com/facebookresearch/LeViT), [pytorch-image-models](https://github.com/rwightman/pytorch-image-models), [EfficientViT](https://github.com/microsoft/Cream/tree/main/EfficientViT) and [PyTorch](https://github.com/pytorch/pytorch) for their wonderful implementations.
+We sincerely appreciate [SHViT](https://github.com/ysj9909/SHViT), [pytorch-image-models](https://github.com/rwightman/pytorch-image-models), [EfficientViT](https://github.com/microsoft/Cream/tree/main/EfficientViT) and [PyTorch](https://github.com/pytorch/pytorch) for their wonderful implementations.
