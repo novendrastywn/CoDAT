@@ -3,6 +3,7 @@
 This is the official repository of 
 
 [**CoDAT: Collaborative Dual-Attention Transformer with Low-Cost Temporal Modeling for Efficient Edge Action Recognition**](https://arxiv.org/abs/2608.06691)
+
 *Novendra Setyawan, Chi-Chia Sun, Mao-Hsiu Hsu, Wen-Kai Kuo, Jing-Ming Guo, Jun-Wei Hsieh.* IEEE IoT Journal 2026
 
 <details>
