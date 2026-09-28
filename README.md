@@ -7,7 +7,7 @@ Official PyTorch implementation of **CoDAT**, published in the *IEEE Internet of
 > IEEE Internet of Things Journal, 2026. [[Paper]](https://doi.org/10.1109/JIOT.2026.3719793)
 
 <p align="center">
-  <img src="assets/CoDATFramework.png" width="90%" alt="CoDAT architecture"/>
+  <img src="CoDATFramework.png" width="90%" alt="CoDAT architecture"/>
 </p>
 
 ## Highlights
