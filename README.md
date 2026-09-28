@@ -4,7 +4,7 @@ Official PyTorch implementation of **CoDAT**, published in the *IEEE Internet of
 
 > **CoDAT: Collaborative Dual-Attention Transformer with Low-Cost Temporal Modeling for Efficient Edge Action Recognition**
 > Novendra Setyawan, Chi-Chia Sun, Mao-Hsiu Hsu, Wen-Kai Kuo, Jing-Ming Guo, Jun-Wei Hsieh
-> IEEE Internet of Things Journal, 2026. [[Paper]](https://doi.org/10.1109/JIOT.2026.3719793)
+> IEEE Internet of Things Journal, 2026. [[IEEE IoT Paper]](https://doi.org/10.1109/JIOT.2026.3719793) [[ArXiV]](https://arxiv.org/abs/2608.06691)
 
 <p align="center">
   <img src="CoDATFramework.png" width="90%" alt="CoDAT architecture"/>
