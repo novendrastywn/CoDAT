@@ -13,12 +13,31 @@ Official PyTorch implementation of **CoDAT**, published in the *IEEE Internet of
 ## Highlights
 
 - **CoDA (Collaborative Dual-Attention)** — a parallel dual-branch module combining:
-  - **SSHA** (Strided Single-Head Attention): joint spatial (`N → N/sr²`) and channel (`C → C/4`) compression for global 2D attention at `O(N²·Cv/sr⁴)` complexity
-  - **SCA** (Spatial Convolutional Attention): local saliency gating at `O(NC)`, fused with SSHA through a learned projection
+  - **SSHA** (Strided Single-Head Attention): joint spatial and channel compression for global 2D attention at `(N²·Cv/sr⁴)` complexity
+  - **SCA** (Spatial Convolutional Attention): local saliency gating at `(NC)` complexity, fused with SSHA through a learned projection
 - **Low-cost temporal modeling** — a single post-CoDA **TShift** (temporal shift) per block: zero learnable parameters, temporal receptive field `2L+1` frames covers the full clip
 - **Edge-first evaluation** — real hardware-measured latency and energy on **Jetson AGX Orin** (INA3221 via `jtop`) and **Raspberry Pi 5** (MXL7704 PMIC ADC via `vcgencmd pmic_read_adc`)
 
 ## Results
+
+### Kinetics-400
+
+| Model | Input (Frames×Res.) | Param (M) | GFLOPs | Top-1 (%) | Latency (ms/F)* | Energy (mJ/F)* |
+|---|---|---|---|---|---|---|
+| TSM-MobileNetV2 | 8×224² | 2.8 | 3.9 | 69.5 | 1.49 | 40.75 |
+| TSM-R50 | 8×224² | 24.3 | 33.0 | 74.1 | 3.91 | 160.89 |
+| MoViNet-A2 | 50×224² | 4.8 | 10.3 | 75.0 | 3.12 | 118.36 |
+| SlowFast 8×8 | 32×256² | — | 65.7 | 77.0 | 7.05 | 286.33 |
+| TokShift (ViT-B) | 8×224² | 85.9 | 135 | 77.3 | 10.15 | 511.35 |
+| TimeSformer | 8×224² | 121.4 | 590 | 78.0 | 10.27 | 591.90 |
+| UniFormer-S | 16×224² | 21.4 | 41.8 | 78.4 | 6.53 | 268.43 |
+| VSwin-T | 32×224² | 28.0 | 88.0 | 78.8 | 6.96 | 365.20 |
+| **CoDAT-S** | 8×256² | **10.6** | **4.6** | 73.6 | **0.89** | **13.79** |
+| **CoDAT-M** | 8×256² | 17.7 | 7.5 | 75.3 | 1.43 | 37.14 |
+| **CoDAT-M₃₈₄** | 8×384² | 17.7 | 16.8 | 77.5 | 2.56 | 86.8 |
+| **CoDAT-L₃₈₄** | 8×384² | 28.4 | 39.1 | 78.5 | 4.74 | 198.7 |
+
+CoDAT-M₃₈₄ matches ViT-Shift and outperforms TokShift at **3.6–3.9× lower latency** with 16.8 GFLOPs; CoDAT-L₃₈₄ reaches VSwin-T-level accuracy at roughly half its energy. Full comparison (including RPi5 measurements) in Table V of the paper.
 
 ### UCF-101 (8×256², single clip / single crop)
 
@@ -37,24 +56,14 @@ Official PyTorch implementation of **CoDAT**, published in the *IEEE Internet of
 
 \* Latency measured on Jetson AGX Orin with ONNX Runtime (CUDA EP), normalized per frame.
 
-CoDAT-S₃₈₄ matches TokShift/LAPS accuracy at **~6× lower latency** and **~13× fewer FLOPs**. Kinetics-400, MA-52 and ImageNet-1K results are in the paper.
-
-## Model Zoo
-
-| Variant | Depth | Dims | Param (M) | FLOPs (G) @256² | TRF (frames) |
-|---|---|---|---|---|---|
-| CoDAT-S | [1, 2, 2] | — | 10.6 | 4.6 | 11 |
-| CoDAT-M | [2, 4, 4] | — | 17.7 | 7.5 | 21 |
-| CoDAT-L | [5, 5, 4] | — | — | — | 29 |
-
-Pretrained weights will be released here upon publication.
+CoDAT-S₃₈₄ matches TokShift/LAPS accuracy at **~6× lower latency** and **~13× fewer FLOPs**. MA-52 and ImageNet-1K results are in the paper.
 
 ## Installation
 
 ```bash
 git clone https://github.com/novendrastywn/CoDAT.git
 cd CoDAT
-conda create -n codat python=3.10 -y
+conda create -n codat python=3.11 -y
 conda activate codat
 pip install torch torchvision timm onnxruntime pandas openpyxl
 ```
@@ -71,76 +80,6 @@ pip install onnxruntime psutil
 vcgencmd pmic_read_adc
 ```
 
-## Usage
-
-### Image classification (ImageNet-1K)
-
-```python
-from models import codat_s
-
-model = codat_s(num_classes=1000, pretrained=True)
-```
-
-### Video action recognition
-
-Video input `[B, T, C, H, W]` is reshaped to `[B·T, C, H, W]` (standard TSM protocol). A single TShift is inserted before the final ConvFFN of each CoDA block (post-CoDA placement):
-
-```python
-from models import codat_action_s
-
-model = codat_action_s(
-    num_classes=101,   # UCF-101
-    n_segment=8,       # input frames
-    shift_div=8,       # 1/8 of channels shifted
-    pretrained='path/to/imagenet_or_k400_weights.pth',
-)
-# input: (B*T, 3, 256, 256) -> logits: (B, num_classes)
-```
-
-### TSM lightweight baselines
-
-The TSM-augmented baselines used in Table VII are included for reproducibility:
-
-```python
-from baselines import tsm_shvit_s3, tsm_shvit_s4, tsm_efficientvit_m5, tsm_microvit_3, tsm_fastvit_s12
-```
-
-## Edge Benchmarking
-
-All latency/energy figures in the paper are reproducible with the scripts in `benchmark/`:
-
-```bash
-# Jetson AGX Orin — INA3221 hardware power via jtop, 115 reps × 3 runs
-python benchmark/bench_jetson.py --runs 3 --repetition 115
-
-# Raspberry Pi 5 — PMIC ADC hardware power, two-pass protocol, 50 reps × 2 runs
-python benchmark/bench_rpi5.py --runs 2 --repetition 50 --power-method pmic_adc
-
-# Raspberry Pi 5 — image classification backbones (throughput + latency)
-python benchmark/bench_rpi5_cls.py --thr-runs 1 --lat-runs 2
-```
-
-Measurement protocol (details in Section IV-A of the paper and the supplementary material):
-
-- 10 s warm-up per model; run 0 discarded; cooldown between models (30 s Jetson / 60 s RPi5)
-- **RPi5 two-pass design**: power is sampled during a dedicated 20 s inference pass (the `pmic_read_adc` subprocess costs ~200 ms per call), then latency is timed with **no background threads**, so power sampling never contaminates timing
-- Energy per frame: `E = P̄ × T_clip / N_frames` (mJ/F); all latency normalized per frame (ms/F)
-- Multi-view (3 crops × 10 clips) is used only for accuracy; latency/energy always single-clip single-crop
-
-## Repository Structure
-
-```
-CoDAT/
-├── models/              # CoDAT backbone + action recognition variants
-├── baselines/           # TSM-SHViT, TSM-EfficientViT, TSM-MicroViT, TSM-FastViT
-├── benchmark/
-│   ├── bench_jetson.py      # Jetson AGX Orin (jtop / INA3221)
-│   ├── bench_rpi5.py        # Raspberry Pi 5 action recognition (PMIC ADC, two-pass)
-│   └── bench_rpi5_cls.py    # Raspberry Pi 5 classification backbones
-├── onnx_action/         # exported ONNX models (action recognition)
-├── onnx_lat/            # exported ONNX models (classification)
-└── assets/
-```
 
 ## Citation
 
